@@ -16,13 +16,38 @@ export function SurveyQuestionContainer({
   const { updateQuestion, deleteQuestion } = useAdminSurvey();
   const [typeError, setTypeError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [draftTitle, setDraftTitle] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [draftDescription, setDraftDescription] = useState(
     question.description ?? "",
   );
+  const title = draftTitle ?? question.title;
 
   useEffect(() => {
     setDraftDescription(question.description ?? "");
   }, [question.id, question.description]);
+
+  async function handleTitleBlur() {
+    const nextTitle = title.trim();
+    if (!nextTitle) {
+      setDraftTitle(question.title);
+      setTitleError("Title is required");
+      return;
+    }
+    if (nextTitle === question.title) {
+      setDraftTitle(null);
+      setTitleError(null);
+      return;
+    }
+    try {
+      await updateQuestion(question.id, { title: nextTitle });
+      setDraftTitle(null);
+      setTitleError(null);
+    } catch (err) {
+      setDraftTitle(question.title);
+      setTitleError(err instanceof Error ? err.message : "Could not save title");
+    }
+  }
 
   async function handleTypeChange(type: SurveyQuestionType) {
     if (type === question.type) {
@@ -71,9 +96,34 @@ export function SurveyQuestionContainer({
   return (
     <article className="survey-question">
       <div className="survey-question__copy">
-        <h3 className="survey-question__title">
-          {question.title.trim() || `Question ${question.sortOrder}`}
-        </h3>
+        <label
+          className="survey-question__title-label"
+          htmlFor={`question-title-${question.id}`}
+        >
+          Question title
+        </label>
+        <input
+          id={`question-title-${question.id}`}
+          className="survey-question__title"
+          value={title}
+          placeholder={`Question ${question.sortOrder}`}
+          onChange={(event) => setDraftTitle(event.target.value)}
+          onBlur={() => {
+            void handleTitleBlur();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+          aria-invalid={titleError ? "true" : "false"}
+        />
+        {titleError && (
+          <p className="survey-question__error" role="alert">
+            {titleError}
+          </p>
+        )}
         <label
           className="survey-question__description-label"
           htmlFor={`question-description-${question.id}`}

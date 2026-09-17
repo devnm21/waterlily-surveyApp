@@ -650,11 +650,42 @@ body {
   min-width: 0;
 }
 
+.survey-question__title-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .survey-question__title {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
   margin: 0;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
   font-size: 1.05rem;
   font-weight: 700;
   line-height: 1.3;
+}
+
+.survey-question__title:focus {
+  border-color: var(--focus);
+  outline: 3px solid color-mix(in srgb, var(--focus) 22%, transparent);
+  outline-offset: 0;
+}
+
+.survey-question__title[aria-invalid="true"] {
+  border-color: var(--fault);
 }
 
 .survey-question__description-label {
