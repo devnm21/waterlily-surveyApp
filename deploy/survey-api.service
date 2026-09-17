@@ -1,0 +1,20 @@
+[Unit]
+Description=Waterlily Survey API
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/home/admin/survey-app/backend
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=HOST=127.0.0.1
+Environment=DATABASE_URL=file:/home/admin/survey-app/data/app.db
+Environment=SESSION_SECRET_FILE=/home/admin/survey-app/backend/session-secret
+Environment=FRONTEND_ORIGIN=https://waterlily-survey-app-ten.vercel.app
+ExecStart=/home/admin/survey-app/node/bin/node /home/admin/survey-app/backend/dist/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

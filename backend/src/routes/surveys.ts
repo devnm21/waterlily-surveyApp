@@ -60,9 +60,9 @@ surveysRouter.patch(
   "/api/survey/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    await requireOwnedSurvey(req.params.id, req.user!.id);
+    await requireOwnedSurvey(String(req.params.id), req.user!.id);
     const body = req.body ?? {};
-    const survey = await models.surveys.update(req.params.id, {
+    const survey = await models.surveys.update(String(req.params.id), {
       title: body.title !== undefined ? String(body.title) : undefined,
       status: body.status !== undefined ? String(body.status) : undefined,
     });
@@ -74,7 +74,7 @@ surveysRouter.delete(
   "/api/question/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-    const question = await models.surveyQuestions.getById(req.params.id);
+    const question = await models.surveyQuestions.getById(String(req.params.id));
     if (!question) {
       throw new HttpError(404, "Question not found");
     }
@@ -89,9 +89,9 @@ surveysRouter.get(
   "/api/survey/:id/submissions",
   requireAuth,
   asyncHandler(async (req, res) => {
-    await requireOwnedSurvey(req.params.id, req.user!.id);
+    await requireOwnedSurvey(String(req.params.id), req.user!.id);
     const submissions = await models.surveySubmissions.listBySurveyId(
-      req.params.id,
+      String(req.params.id),
     );
     res.json({ submissions });
   }),
@@ -100,7 +100,7 @@ surveysRouter.get(
 surveysRouter.get(
   "/api/survey/:id/submission",
   asyncHandler(async (req, res) => {
-    const survey = await requirePublishedSurvey(req.params.id);
+    const survey = await requirePublishedSurvey(String(req.params.id));
     const submission = await models.surveySubmissions.findBySurveyIdAndEmail(
       survey.id,
       String(req.query.email ?? ""),
@@ -108,15 +108,14 @@ surveysRouter.get(
     if (!submission) {
       throw new HttpError(404, "Submission not found");
     }
-    const payload = await submissionWithAnswers(submission.id);
-    res.json(payload);
+    res.json({ submission, answers: [] });
   }),
 );
 
 surveysRouter.post(
   "/api/survey/:id/submission",
   asyncHandler(async (req, res) => {
-    const survey = await requirePublishedSurvey(req.params.id);
+    const survey = await requirePublishedSurvey(String(req.params.id));
 
     const rawAnswers = req.body?.answers;
     if (!Array.isArray(rawAnswers)) {
@@ -159,9 +158,9 @@ surveysRouter.post(
   "/api/survey/:id/question",
   requireAuth,
   asyncHandler(async (req, res) => {
-    await requireOwnedSurvey(req.params.id, req.user!.id);
+    await requireOwnedSurvey(String(req.params.id), req.user!.id);
     const question = await models.surveyQuestions.create({
-      surveyId: req.params.id,
+      surveyId: String(req.params.id),
       title: String(req.body?.title ?? ""),
       type: req.body?.type,
       sortOrder: req.body?.sortOrder,
@@ -176,11 +175,11 @@ surveysRouter.patch(
   "/api/survey/:id/question/:questionId",
   requireAuth,
   asyncHandler(async (req, res) => {
-    await requireOwnedSurvey(req.params.id, req.user!.id);
+    await requireOwnedSurvey(String(req.params.id), req.user!.id);
     const body = req.body ?? {};
     const question = await models.surveyQuestions.update({
-      id: req.params.questionId,
-      surveyId: req.params.id,
+      id: String(req.params.questionId),
+      surveyId: String(req.params.id),
       title: body.title !== undefined ? String(body.title) : undefined,
       description: body.description,
       type: body.type !== undefined ? String(body.type) : undefined,
@@ -194,7 +193,7 @@ surveysRouter.patch(
 surveysRouter.get(
   "/api/survey/:id",
   asyncHandler(async (req, res) => {
-    const survey = await models.surveys.getById(req.params.id);
+    const survey = await models.surveys.getById(String(req.params.id));
     if (!survey) {
       throw new HttpError(404, "Survey not found");
     }
@@ -209,8 +208,10 @@ surveysRouter.get(
 
 surveysRouter.get(
   "/api/submission/:id",
+  requireAuth,
   asyncHandler(async (req, res) => {
-    const payload = await submissionWithAnswers(req.params.id);
+    const payload = await submissionWithAnswers(String(req.params.id));
+    await requireOwnedSurvey(payload.submission.surveyId, req.user!.id);
     res.json(payload);
   }),
 );

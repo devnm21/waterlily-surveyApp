@@ -12,8 +12,9 @@ const dbUrl = process.env.DATABASE_URL ?? "file:./data/app.db";
 const dbPath = sqlitePathFromUrl(dbUrl);
 fs.mkdirSync(path.dirname(dbPath) || ".", { recursive: true });
 
-const sqlite = new Database(dbPath);
+export const sqlite = new Database(dbPath);
 sqlite.pragma("foreign_keys = ON");
+sqlite.pragma("journal_mode = WAL");
 
 function ensureColumn(table: string, name: string, sqlType: string) {
   const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as {
@@ -90,6 +91,15 @@ sqlite.exec(`
     updated_at integer NOT NULL,
     UNIQUE (survey_question_id, submission_id)
   );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    id text PRIMARY KEY NOT NULL,
+    data text NOT NULL,
+    expires_at integer NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS sessions_expires_idx
+    ON sessions (expires_at);
 
   CREATE INDEX IF NOT EXISTS survey_owner_idx
     ON surveys (user_id, created_at DESC);
