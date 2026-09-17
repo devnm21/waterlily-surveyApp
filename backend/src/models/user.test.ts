@@ -20,6 +20,19 @@ describe("UserModel", () => {
     expect(row?.passwordHash).not.toContain("password1");
   });
 
+  it("stamps createdAt and updatedAt on create", async () => {
+    const before = Date.now();
+    const created = await models.users.create({
+      email: "time@example.com",
+      password: "password1",
+    });
+    const after = Date.now();
+
+    expect(created.createdAt).toBeGreaterThanOrEqual(before);
+    expect(created.createdAt).toBeLessThanOrEqual(after);
+    expect(created.updatedAt).toBe(created.createdAt);
+  });
+
   it("rejects a short password", async () => {
     await expect(
       models.users.create({ email: "a@b.co", password: "short" }),

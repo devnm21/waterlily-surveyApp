@@ -2,31 +2,31 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { hashPassword } from "../lib/password.js";
+import { isUniqueConstraintError } from "../lib/sqlite-errors.js";
 import { HttpError } from "../middleware/error.js";
 
 export type PublicUser = {
   id: string;
   email: string;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type UserRow = {
   id: string;
   email: string;
   passwordHash: string;
+  createdAt: number;
+  updatedAt: number;
 };
 
 function toPublic(row: UserRow): PublicUser {
-  return { id: row.id, email: row.email };
-}
-
-function isUniqueConstraintError(err: unknown): boolean {
-  if (err instanceof Error) {
-    if (err.message.includes("UNIQUE") || err.message.includes("unique")) {
-      return true;
-    }
-  }
-  const code = (err as { code?: string }).code;
-  return code === "SQLITE_CONSTRAINT_UNIQUE";
+  return {
+    id: row.id,
+    email: row.email,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 export class UserModel {
@@ -42,10 +42,13 @@ export class UserModel {
       throw new HttpError(400, "Password must be at least 8 characters");
     }
 
+    const now = Date.now();
     const row: UserRow = {
       id: crypto.randomUUID(),
       email,
       passwordHash: await hashPassword(password),
+      createdAt: now,
+      updatedAt: now,
     };
 
     try {
