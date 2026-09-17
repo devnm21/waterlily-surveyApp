@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import session from "express-session";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
@@ -7,9 +8,29 @@ import { usersRouter } from "./routes/users.js";
 
 export const app = express();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+const sessionSecret = process.env.SESSION_SECRET ?? "dev-insecure-secret";
+
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(
+  session({
+    name: "sid",
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+    },
+  }),
+);
 app.use((req, _res, next) => {
   console.log(`${req.method} ${req.path}`);
   next();

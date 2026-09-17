@@ -72,4 +72,13 @@ export class UserModel {
       .limit(1);
     return rows[0];
   }
+
+  async findById(id: string): Promise<UserRow | undefined> {
+    const rows = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    return rows[0];
+  }
 }

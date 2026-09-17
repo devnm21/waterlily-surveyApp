@@ -74,4 +74,58 @@ describe("users and auth", () => {
       .send({ email: "nobody@example.com", password });
     expect(unknownUser.body).toEqual(badPassword.body);
   });
+
+  it("sets a session cookie on login", async () => {
+    await request(app).post("/users").send({
+      email: "cookie@example.com",
+      password,
+    });
+    const res = await request(app)
+      .post("/auth/login")
+      .send({ email: "cookie@example.com", password });
+    expect(res.status).toBe(200);
+    const setCookie = res.headers["set-cookie"];
+    expect(setCookie).toBeDefined();
+    expect(String(setCookie)).toMatch(/sid=/);
+    expect(String(setCookie)).toMatch(/HttpOnly/i);
+  });
+
+  it("rejects /auth/me without a session", async () => {
+    const res = await request(app).get("/auth/me");
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ error: "Unauthorized", status: 401 });
+  });
+
+  it("returns the current user when the session cookie is sent", async () => {
+    const agent = request.agent(app);
+    await agent.post("/users").send({
+      email: "session@example.com",
+      password,
+    });
+    await agent.post("/auth/login").send({
+      email: "session@example.com",
+      password,
+    });
+    const res = await agent.get("/auth/me");
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe("session@example.com");
+    expect(res.body.user.id).toBeTruthy();
+    expect(JSON.stringify(res.body)).not.toMatch(/password/i);
+  });
+
+  it("clears the session on logout", async () => {
+    const agent = request.agent(app);
+    await agent.post("/users").send({
+      email: "logout@example.com",
+      password,
+    });
+    await agent.post("/auth/login").send({
+      email: "logout@example.com",
+      password,
+    });
+    const logout = await agent.post("/auth/logout");
+    expect(logout.status).toBe(200);
+    const me = await agent.get("/auth/me");
+    expect(me.status).toBe(401);
+  });
 });

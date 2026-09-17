@@ -14,6 +14,7 @@ type ErrorBody = {
 async function jsonFetch<T>(path: string, init: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
@@ -38,4 +39,12 @@ export function loginUser(email: string, password: string) {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+}
+
+export function fetchCurrentUser() {
+  return jsonFetch<{ user: PublicUser }>("/auth/me", { method: "GET" });
+}
+
+export function logoutUser() {
+  return jsonFetch<{ ok: true }>("/auth/logout", { method: "POST" });
 }

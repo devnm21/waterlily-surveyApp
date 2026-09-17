@@ -18,6 +18,9 @@ describe("UserModel", () => {
     expect(row?.email).toBe("ada@example.com");
     expect(row?.passwordHash).toMatch(/^scrypt\$/);
     expect(row?.passwordHash).not.toContain("password1");
+
+    const byId = await models.users.findById(created.id);
+    expect(byId?.email).toBe("ada@example.com");
   });
 
   it("stamps createdAt and updatedAt on create", async () => {
