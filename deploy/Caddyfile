@@ -1,0 +1,10 @@
+pulse.vps.webdock.cloud {
+  @survey_api path /api/* /auth/* /users /health
+  handle @survey_api {
+    reverse_proxy 127.0.0.1:3001
+  }
+
+  handle {
+    respond "Not found" 404
+  }
+}

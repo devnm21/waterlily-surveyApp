@@ -1,5 +1,6 @@
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === "production" ? "" : "http://localhost:3001");
 
 export type PublicUser = {
   id: string;
@@ -19,8 +20,13 @@ export class ApiError extends Error {
 }
 
 async function jsonFetch<T>(path: string, init: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
+  const baseUrl =
+    typeof window === "undefined"
+      ? process.env.API_PROXY_ORIGIN ?? API_URL
+      : API_URL;
+  const res = await fetch(`${baseUrl}${path}`, {
     ...init,
+    cache: "no-store",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",

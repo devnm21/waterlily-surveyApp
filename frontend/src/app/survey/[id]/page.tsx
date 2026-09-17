@@ -16,7 +16,7 @@ export default async function SurveyPage({
   const { id } = await params;
   const data = await getSurvey(id).catch(() => null);
 
-  if (!data) {
+  if (!data || data.survey.status !== "published") {
     return (
       <main className={styles.statePage}>
         <p className={styles.eyebrow}>Waterlily Survey</p>
