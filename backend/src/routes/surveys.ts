@@ -18,6 +18,14 @@ async function requireOwnedSurvey(surveyId: string, userId: string) {
   return survey;
 }
 
+async function requirePublishedSurvey(surveyId: string) {
+  const survey = await models.surveys.getById(surveyId);
+  if (!survey || survey.status !== "published") {
+    throw new HttpError(404, "Survey not found");
+  }
+  return survey;
+}
+
 async function submissionWithAnswers(submissionId: string) {
   const submission = await models.surveySubmissions.getById(submissionId);
   if (!submission) {
@@ -92,10 +100,7 @@ surveysRouter.get(
 surveysRouter.get(
   "/api/survey/:id/submission",
   asyncHandler(async (req, res) => {
-    const survey = await models.surveys.getById(req.params.id);
-    if (!survey) {
-      throw new HttpError(404, "Survey not found");
-    }
+    const survey = await requirePublishedSurvey(req.params.id);
     const submission = await models.surveySubmissions.findBySurveyIdAndEmail(
       survey.id,
       String(req.query.email ?? ""),
@@ -111,10 +116,7 @@ surveysRouter.get(
 surveysRouter.post(
   "/api/survey/:id/submission",
   asyncHandler(async (req, res) => {
-    const survey = await models.surveys.getById(req.params.id);
-    if (!survey) {
-      throw new HttpError(404, "Survey not found");
-    }
+    const survey = await requirePublishedSurvey(req.params.id);
 
     const rawAnswers = req.body?.answers;
     if (!Array.isArray(rawAnswers)) {
@@ -194,6 +196,10 @@ surveysRouter.get(
   asyncHandler(async (req, res) => {
     const survey = await models.surveys.getById(req.params.id);
     if (!survey) {
+      throw new HttpError(404, "Survey not found");
+    }
+    const isOwner = survey.userId === req.session.userId;
+    if (survey.status !== "published" && !isOwner) {
       throw new HttpError(404, "Survey not found");
     }
     const questions = await models.surveyQuestions.listBySurveyId(survey.id);

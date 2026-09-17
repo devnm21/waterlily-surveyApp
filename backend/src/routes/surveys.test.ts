@@ -11,6 +11,29 @@ async function registerAndLogin(email = `${crypto.randomUUID()}@example.com`) {
   return { agent, email };
 }
 
+async function createSurveyWithQuestion(agent: ReturnType<typeof request.agent>) {
+  const created = await agent.post("/api/survey").send({ title: "Intake" });
+  const surveyId = created.body.survey.id as string;
+  const question = await agent.post(`/api/survey/${surveyId}/question`).send({
+    title: "Full name",
+    type: "short_text",
+  });
+  return {
+    surveyId,
+    questionId: question.body.question.id as string,
+  };
+}
+
+async function publishSurvey(
+  agent: ReturnType<typeof request.agent>,
+  surveyId: string,
+) {
+  const res = await agent
+    .patch(`/api/survey/${surveyId}`)
+    .send({ status: "published" });
+  expect(res.status).toBe(200);
+}
+
 describe("survey creator routes", () => {
   it("rejects creating a survey without a session", async () => {
     const res = await request(app).post("/api/survey").send({ title: "Intake" });
@@ -106,31 +129,20 @@ describe("survey creator routes", () => {
 
   it("deletes an owned question", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    const question = await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const questionId = question.body.question.id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
 
     const res = await agent.delete(`/api/question/${questionId}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
 
-    const survey = await request(app).get(`/api/survey/${surveyId}`);
+    const survey = await agent.get(`/api/survey/${surveyId}`);
     expect(survey.body.questions).toEqual([]);
   });
 
   it("deletes a question even if it already has answers", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    const question = await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const questionId = question.body.question.id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
 
     await request(app)
       .post(`/api/survey/${surveyId}/submission`)
@@ -142,7 +154,7 @@ describe("survey creator routes", () => {
     const res = await agent.delete(`/api/question/${questionId}`);
     expect(res.status).toBe(200);
 
-    const survey = await request(app).get(`/api/survey/${surveyId}`);
+    const survey = await agent.get(`/api/survey/${surveyId}`);
     expect(survey.body.questions).toEqual([]);
   });
 
@@ -202,14 +214,8 @@ describe("survey creator routes", () => {
   it("lists submissions for an owned survey and forbids other users", async () => {
     const owner = await registerAndLogin();
     const other = await registerAndLogin();
-    const created = await owner.agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    await owner.agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const publicSurvey = await request(app).get(`/api/survey/${surveyId}`);
-    const questionId = publicSurvey.body.questions[0].id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(owner.agent);
+    await publishSurvey(owner.agent, surveyId);
 
     await request(app)
       .post(`/api/survey/${surveyId}/submission`)
@@ -229,32 +235,56 @@ describe("survey creator routes", () => {
 });
 
 describe("survey respondent routes", () => {
-  it("returns a survey with questions without auth", async () => {
+  it("hides a draft survey from the public", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
+    const { surveyId } = await createSurveyWithQuestion(agent);
+
+    const res = await request(app).get(`/api/survey/${surveyId}`);
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Survey not found", status: 404 });
+  });
+
+  it("lets the owner read a draft survey", async () => {
+    const { agent } = await registerAndLogin();
+    const { surveyId } = await createSurveyWithQuestion(agent);
+
+    const res = await agent.get(`/api/survey/${surveyId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.survey.status).toBe("draft");
+    expect(res.body.questions).toHaveLength(1);
+  });
+
+  it("rejects public submissions on a draft survey", async () => {
+    const { agent } = await registerAndLogin();
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+
+    const res = await request(app)
+      .post(`/api/survey/${surveyId}/submission`)
+      .send({
+        email: "responder@example.com",
+        answers: [{ questionId, value: "Ada" }],
+      });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Survey not found", status: 404 });
+  });
+
+  it("returns a published survey with questions without auth", async () => {
+    const { agent } = await registerAndLogin();
+    const { surveyId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
 
     const res = await request(app).get(`/api/survey/${surveyId}`);
     expect(res.status).toBe(200);
     expect(res.body.survey.title).toBe("Intake");
+    expect(res.body.survey.status).toBe("published");
     expect(res.body.questions).toHaveLength(1);
     expect(res.body.questions[0].title).toBe("Full name");
   });
 
   it("accepts a public submission with all answers", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const publicSurvey = await request(app).get(`/api/survey/${surveyId}`);
-    const questionId = publicSurvey.body.questions[0].id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
 
     const res = await request(app)
       .post(`/api/survey/${surveyId}/submission`)
@@ -271,14 +301,8 @@ describe("survey respondent routes", () => {
 
   it("returns a respondent's submission by email without auth", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const publicSurvey = await request(app).get(`/api/survey/${surveyId}`);
-    const questionId = publicSurvey.body.questions[0].id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
 
     await request(app)
       .post(`/api/survey/${surveyId}/submission`)
@@ -296,16 +320,20 @@ describe("survey respondent routes", () => {
     expect(res.body.answers[0].value).toBe("Ada");
   });
 
+  it("hides draft submission lookup from the public", async () => {
+    const { agent } = await registerAndLogin();
+    const { surveyId } = await createSurveyWithQuestion(agent);
+
+    const res = await request(app)
+      .get(`/api/survey/${surveyId}/submission`)
+      .query({ email: "responder@example.com" });
+    expect(res.status).toBe(404);
+  });
+
   it("returns a submission with answers by id without auth", async () => {
     const { agent } = await registerAndLogin();
-    const created = await agent.post("/api/survey").send({ title: "Intake" });
-    const surveyId = created.body.survey.id as string;
-    await agent.post(`/api/survey/${surveyId}/question`).send({
-      title: "Full name",
-      type: "short_text",
-    });
-    const publicSurvey = await request(app).get(`/api/survey/${surveyId}`);
-    const questionId = publicSurvey.body.questions[0].id as string;
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
 
     const posted = await request(app)
       .post(`/api/survey/${surveyId}/submission`)
