@@ -330,7 +330,7 @@ describe("survey respondent routes", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns a submission with answers by id without auth", async () => {
+  it("requires auth to read a submission by id", async () => {
     const { agent } = await registerAndLogin();
     const { surveyId, questionId } = await createSurveyWithQuestion(agent);
     await publishSurvey(agent, surveyId);
@@ -343,14 +343,35 @@ describe("survey respondent routes", () => {
       });
     const submissionId = posted.body.submission.id as string;
 
-    const res = await request(app).get(`/api/submission/${submissionId}`);
-    expect(res.status).toBe(200);
-    expect(res.body.submission.id).toBe(submissionId);
-    expect(res.body.answers).toEqual([
+    const anonymous = await request(app).get(`/api/submission/${submissionId}`);
+    expect(anonymous.status).toBe(401);
+
+    const owner = await agent.get(`/api/submission/${submissionId}`);
+    expect(owner.status).toBe(200);
+    expect(owner.body.submission.id).toBe(submissionId);
+    expect(owner.body.answers).toEqual([
       expect.objectContaining({
         surveyQuestionId: questionId,
         value: "Ada",
       }),
     ]);
+  });
+
+  it("rejects reading a submission that belongs to another author", async () => {
+    const { agent } = await registerAndLogin();
+    const { surveyId, questionId } = await createSurveyWithQuestion(agent);
+    await publishSurvey(agent, surveyId);
+
+    const posted = await request(app)
+      .post(`/api/survey/${surveyId}/submission`)
+      .send({
+        email: "responder@example.com",
+        answers: [{ questionId, value: "Ada" }],
+      });
+    const submissionId = posted.body.submission.id as string;
+
+    const { agent: otherAgent } = await registerAndLogin();
+    const res = await otherAgent.get(`/api/submission/${submissionId}`);
+    expect(res.status).toBe(403);
   });
 });

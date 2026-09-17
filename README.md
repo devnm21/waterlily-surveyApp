@@ -44,7 +44,7 @@ Health check: `curl localhost:3001/health`
 **Authoring (requires login)**
 
 - Register, log in, log out — custom auth, session cookie
-- Create surveys; add, edit, delete, and order questions
+- Create surveys; add, edit, and delete questions
 - Toggle a survey between `draft` and `published`
 - Review all submissions for a survey, and drill into one submission's answers
 
@@ -168,7 +168,7 @@ per question type or an EAV model. The alternatives considered are in
 | `GET` | `/api/survey/:id` | Public if published; owner may preview a draft |
 | `POST` | `/api/survey/:id/submission` | Public, published surveys only |
 | `GET` | `/api/survey/:id/submission?email=` | Public — a respondent's own response |
-| `GET` | `/api/submission/:id` | Public |
+| `GET` | `/api/submission/:id` | Session, owner |
 
 Errors are JSON: `{ "error": "message" }` with a meaningful status — `400` validation,
 `401` unauthenticated, `403` not the owner, `404` missing, `409` constraint conflict.

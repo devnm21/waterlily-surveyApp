@@ -122,6 +122,11 @@ consolidate on one.
 unpublished survey was readable and submittable by anyone with the link. Now enforced on
 the API and the take-survey page, with authors still able to preview their own drafts.
 
+**Reading a submission by id used to be public.** `GET /api/submission/:id` had no auth,
+so anyone holding an id could read a respondent's answers and email. It now requires a
+session and survey ownership. Looking up your own response by email is still public — that
+was the intended trade-off; reading arbitrary submissions by id was not.
+
 ---
 
 ## Known gaps
@@ -132,7 +137,8 @@ the API and the take-survey page, with authors still able to preview their own d
 - `createWithAnswers` writes the submission and its answers without a transaction,
   compensating with a delete on failure. A transaction is the right tool.
 - Schema is applied with `drizzle-kit push`, so there's no committed migration history.
-- Sessions use the default in-memory store and don't survive a restart.
+- Sessions are backed by SQLite in production but use the default in-memory store in
+  development, so a local restart logs you out.
 - No question reordering: `unique(survey_id, sort_order)` has no swap logic behind it.
 - No partial submissions stored, so drop-off reporting isn't possible yet.
 - Backend has 44 tests; the frontend is typechecked but has no component tests.

@@ -108,7 +108,8 @@ surveysRouter.get(
     if (!submission) {
       throw new HttpError(404, "Submission not found");
     }
-    res.json({ submission, answers: [] });
+    const payload = await submissionWithAnswers(submission.id);
+    res.json(payload);
   }),
 );
 

@@ -6,7 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "db:push": "drizzle-kit push"
+    "db:push": "mkdir -p data && drizzle-kit push"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
