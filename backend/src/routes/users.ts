@@ -11,6 +11,7 @@ usersRouter.post(
       email: String(req.body?.email ?? ""),
       password: String(req.body?.password ?? ""),
     });
+    req.session.userId = user.id;
     res.status(201).json({ user });
   }),
 );

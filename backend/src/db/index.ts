@@ -14,6 +14,34 @@ fs.mkdirSync(path.dirname(dbPath) || ".", { recursive: true });
 
 const sqlite = new Database(dbPath);
 sqlite.pragma("foreign_keys = ON");
+
+function ensureColumn(table: string, name: string, sqlType: string) {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
+  if (!cols.some((col) => col.name === name)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${sqlType}`);
+  }
+}
+
+function ensureTimestampColumns(table: string) {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as {
+    name: string;
+  }[];
+  const names = new Set(cols.map((col) => col.name));
+  const now = Date.now();
+  if (!names.has("created_at")) {
+    sqlite.exec(
+      `ALTER TABLE ${table} ADD COLUMN created_at integer NOT NULL DEFAULT ${now}`,
+    );
+  }
+  if (!names.has("updated_at")) {
+    sqlite.exec(
+      `ALTER TABLE ${table} ADD COLUMN updated_at integer NOT NULL DEFAULT ${now}`,
+    );
+  }
+}
+
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id text PRIMARY KEY NOT NULL,
@@ -36,6 +64,7 @@ sqlite.exec(`
     id text PRIMARY KEY NOT NULL,
     survey_id text NOT NULL REFERENCES surveys(id),
     title text NOT NULL,
+    description text,
     type text NOT NULL,
     sort_order integer NOT NULL,
     options text,
@@ -61,7 +90,25 @@ sqlite.exec(`
     updated_at integer NOT NULL,
     UNIQUE (survey_question_id, submission_id)
   );
+
+  CREATE INDEX IF NOT EXISTS survey_owner_idx
+    ON surveys (user_id, created_at DESC);
+
+  CREATE INDEX IF NOT EXISTS survey_submissions_survey_created_idx
+    ON survey_submissions (survey_id, created_at DESC);
 `);
+
+for (const table of [
+  "users",
+  "surveys",
+  "survey_questions",
+  "survey_submissions",
+  "survey_answers",
+]) {
+  ensureTimestampColumns(table);
+}
+
+ensureColumn("survey_questions", "description", "text");
 
 export const db = drizzle(sqlite, { schema });
 export type Db = typeof db;

@@ -1,10 +1,5 @@
-import { AuthForm } from "@/components/AuthForm";
+import { SessionRedirect } from "@/components/AuthGate";
 
 export default function Home() {
-  return (
-    <main>
-      <h1 className="p-6 text-2xl font-semibold">Waterlily survey</h1>
-      <AuthForm />
-    </main>
-  );
+  return <SessionRedirect />;
 }

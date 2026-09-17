@@ -4,6 +4,7 @@ import session from "express-session";
 import { errorHandler, notFoundHandler } from "./middleware/error.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
+import { surveysRouter } from "./routes/surveys.js";
 import { usersRouter } from "./routes/users.js";
 
 export const app = express();
@@ -38,5 +39,6 @@ app.use((req, _res, next) => {
 app.use(healthRouter);
 app.use(usersRouter);
 app.use(authRouter);
+app.use(surveysRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);

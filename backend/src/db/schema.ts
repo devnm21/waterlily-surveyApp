@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { desc } from "drizzle-orm";
+import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const surveyStatuses = ["draft", "published"] as const;
 export type SurveyStatus = (typeof surveyStatuses)[number];
@@ -19,16 +20,20 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at").notNull(),
 });
 
-export const surveys = sqliteTable("surveys", {
-  id: text("id").primaryKey(),
-  title: text("title").notNull(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  status: text("status", { enum: surveyStatuses }).notNull().default("draft"),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
+export const surveys = sqliteTable(
+  "surveys",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    status: text("status", { enum: surveyStatuses }).notNull().default("draft"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("survey_owner_idx").on(t.userId, desc(t.createdAt))],
+);
 
 export const surveyQuestions = sqliteTable(
   "survey_questions",
@@ -38,6 +43,7 @@ export const surveyQuestions = sqliteTable(
       .notNull()
       .references(() => surveys.id),
     title: text("title").notNull(),
+    description: text("description"),
     type: text("type", { enum: surveyQuestionTypes }).notNull(),
     sortOrder: integer("sort_order").notNull(),
     options: text("options", { mode: "json" }).$type<string[]>(),
@@ -47,15 +53,24 @@ export const surveyQuestions = sqliteTable(
   (t) => [unique("survey_questions_survey_sort").on(t.surveyId, t.sortOrder)],
 );
 
-export const surveySubmissions = sqliteTable("survey_submissions", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull(),
-  surveyId: text("survey_id")
-    .notNull()
-    .references(() => surveys.id),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
+export const surveySubmissions = sqliteTable(
+  "survey_submissions",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    surveyId: text("survey_id")
+      .notNull()
+      .references(() => surveys.id),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("survey_submissions_survey_created_idx").on(
+      t.surveyId,
+      desc(t.createdAt),
+    ),
+  ],
+);
 
 export const surveyAnswers = sqliteTable(
   "survey_answers",

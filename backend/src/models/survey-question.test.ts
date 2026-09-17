@@ -71,4 +71,29 @@ describe("SurveyQuestionModel", () => {
 
     expect(question.options).toBeNull();
   });
+
+  it("stores a description and leaves it null when omitted", async () => {
+    const survey = await createSurvey();
+    const blank = await models.surveyQuestions.create({
+      surveyId: survey.id,
+      title: "Full name",
+      type: "short_text",
+    });
+    expect(blank.description).toBeNull();
+
+    const described = await models.surveyQuestions.create({
+      surveyId: survey.id,
+      title: "Notes",
+      type: "long_text",
+      description: "  Anything else?  ",
+    });
+    expect(described.description).toBe("Anything else?");
+
+    const cleared = await models.surveyQuestions.update({
+      id: described.id,
+      surveyId: survey.id,
+      description: "   ",
+    });
+    expect(cleared.description).toBeNull();
+  });
 });

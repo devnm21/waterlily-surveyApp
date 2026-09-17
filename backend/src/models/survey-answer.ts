@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import type { Db } from "../db/index.js";
 import { surveyAnswers } from "../db/schema.js";
 import { isUniqueConstraintError } from "../lib/sqlite-errors.js";
@@ -12,6 +13,34 @@ export type SurveyAnswer = {
   updatedAt: number;
 };
 
+export function buildSurveyAnswer(input: {
+  surveyQuestionId: string;
+  submissionId: string;
+  value: unknown;
+}): SurveyAnswer {
+  const surveyQuestionId = input.surveyQuestionId.trim();
+  const submissionId = input.submissionId.trim();
+  if (!surveyQuestionId) {
+    throw new HttpError(400, "Question is required");
+  }
+  if (!submissionId) {
+    throw new HttpError(400, "Submission is required");
+  }
+  if (input.value === undefined) {
+    throw new HttpError(400, "Value is required");
+  }
+
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    surveyQuestionId,
+    submissionId,
+    value: input.value,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 export class SurveyAnswerModel {
   constructor(private db: Db) {}
 
@@ -20,27 +49,7 @@ export class SurveyAnswerModel {
     submissionId: string;
     value: unknown;
   }): Promise<SurveyAnswer> {
-    const surveyQuestionId = input.surveyQuestionId.trim();
-    const submissionId = input.submissionId.trim();
-    if (!surveyQuestionId) {
-      throw new HttpError(400, "Question is required");
-    }
-    if (!submissionId) {
-      throw new HttpError(400, "Submission is required");
-    }
-    if (input.value === undefined) {
-      throw new HttpError(400, "Value is required");
-    }
-
-    const now = Date.now();
-    const row: SurveyAnswer = {
-      id: crypto.randomUUID(),
-      surveyQuestionId,
-      submissionId,
-      value: input.value,
-      createdAt: now,
-      updatedAt: now,
-    };
+    const row = buildSurveyAnswer(input);
 
     try {
       await this.db.insert(surveyAnswers).values(row);
@@ -52,5 +61,18 @@ export class SurveyAnswerModel {
     }
 
     return row;
+  }
+
+  async listBySubmissionId(submissionId: string): Promise<SurveyAnswer[]> {
+    return this.db
+      .select()
+      .from(surveyAnswers)
+      .where(eq(surveyAnswers.submissionId, submissionId));
+  }
+
+  async deleteByQuestionId(questionId: string): Promise<void> {
+    await this.db
+      .delete(surveyAnswers)
+      .where(eq(surveyAnswers.surveyQuestionId, questionId));
   }
 }

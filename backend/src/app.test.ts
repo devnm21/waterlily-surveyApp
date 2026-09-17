@@ -96,6 +96,18 @@ describe("users and auth", () => {
     expect(res.body).toEqual({ error: "Unauthorized", status: 401 });
   });
 
+  it("starts a session on register", async () => {
+    const agent = request.agent(app);
+    const created = await agent.post("/users").send({
+      email: "after-signup@example.com",
+      password,
+    });
+    expect(created.status).toBe(201);
+    const res = await agent.get("/auth/me");
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe("after-signup@example.com");
+  });
+
   it("returns the current user when the session cookie is sent", async () => {
     const agent = request.agent(app);
     await agent.post("/users").send({
